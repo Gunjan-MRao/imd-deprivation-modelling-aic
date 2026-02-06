@@ -24,3 +24,5 @@ Completed as part of Coventry University coursework.
 “Place imd2025_individual.csv in data/”
 
 “Open notebooks/01_linear_models_aic_diagnostics.Rmd and Knit”
+
+Live site: https://gunjan-mrao.github.io/imd-deprivation-modelling-aic/
