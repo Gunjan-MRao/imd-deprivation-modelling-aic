@@ -1,0 +1,170 @@
+---
+title: "IMD 2025: PCA on seven deprivation domains (National + London comparison)"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    df_print: paged
+output_file: "outputs/02_pca_domains.html"
+---
+
+## Setup
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+
+library(tidyverse)
+library(factoextra)
+
+imdgroup <- readr::read_csv(
+  file.path("..", "data", "imd2025_group.csv"),
+  show_col_types = FALSE
+)
+
+domains <- c("Income","Employment","Education","Health","Crime","Barriers","Living")
+
+required <- c("LAD24CD","LAD24NM","Overall","Rank","Region", domains)
+missing <- setdiff(required, names(imdgroup))
+if (length(missing) > 0) stop("Missing columns: ", paste(missing, collapse = ", "))
+
+imdgroup %>% select(all_of(required)) %>% glimpse()
+
+```
+## National PCA (all LADs)
+
+```{r pca-national, echo=FALSE, message=FALSE, warning=FALSE}
+
+pca_national <- prcomp(imdgroup[, domains], center = TRUE, scale. = TRUE)
+summary(pca_national)
+
+```
+
+### Scree plot
+
+```{r scree-national, echo=FALSE, message=FALSE, warning=FALSE}
+
+fviz_screeplot(
+  pca_national, addlabels = TRUE,
+  title = "Scree plot: PCA on seven IMD domains (National)",
+  xlab = "Principal component", ylab = "Variance explained"
+)
+
+```
+
+### Variable biplots (PC1–PC2, PC2–PC3)
+
+```{r biplots-national, echo=FALSE, message=FALSE, warning=FALSE}
+
+fviz_pca_var(
+  pca_national, axes = c(1, 2),
+  title = "Variable loadings: PC1 vs PC2 (National)",
+  geom = c("arrow", "text")
+)
+
+fviz_pca_var(
+  pca_national, axes = c(2, 3),
+  title = "Variable loadings: PC2 vs PC3 (National)",
+  geom = c("arrow", "text")
+)
+
+```
+
+## London-only PCA
+
+```{r pca-london, echo=FALSE, message=FALSE, warning=FALSE}
+
+london <- imdgroup %>% filter(Region == "London")
+nrow(london)
+
+if (nrow(london) == 0) stop("No London rows found. Check the 'Region' column values.")
+
+pca_london <- prcomp(london[, domains], center = TRUE, scale. = TRUE)
+summary(pca_london)
+
+```
+
+### Scree plot (London)
+
+```{r scree-london, echo=FALSE, message=FALSE, warning=FALSE}
+
+fviz_screeplot(
+  pca_london, addlabels = TRUE,
+  title = "Scree plot: PCA on seven IMD domains (London only)",
+  xlab = "Principal component", ylab = "Variance explained"
+)
+
+```
+
+### Variable biplot (PC1–PC2, London)
+
+```{r biplot-london, echo=FALSE, message=FALSE, warning=FALSE}
+
+fviz_pca_var(
+  pca_london, axes = c(1, 2),
+  title = "Variable loadings: PC1 vs PC2 (London only)",
+  geom = c("arrow", "text")
+)
+
+```
+
+## National vs London comparison
+
+### Variance explained (PC1–PC3)
+
+```{r variance-compare, echo=FALSE, message=FALSE, warning=FALSE}
+
+var_nat <- summary(pca_national)$importance[2, 1:3]
+var_lon <- summary(pca_london)$importance[2, 1:3]
+
+variance_tbl <- tibble(
+  PC = paste0("PC", 1:3),
+  National = as.numeric(var_nat),
+  London = as.numeric(var_lon),
+  Difference = London - National
+)
+
+variance_tbl
+
+```
+
+### PC1 loadings + correlation (note on sign)
+
+```{r loadings-compare, echo=FALSE, message=FALSE, warning=FALSE}
+
+load_nat <- pca_national$rotation[, 1]
+load_lon <- pca_london$rotation[, 1]
+
+loading_tbl <- tibble(
+  Domain = domains,
+  National_PC1 = as.numeric(load_nat[domains]),
+  London_PC1 = as.numeric(load_lon[domains]),
+  Difference = London_PC1 - National_PC1
+) %>% arrange(desc(abs(Difference)))
+
+loading_tbl
+
+# PCA component signs can flip; negative correlation can simply reflect a sign flip.
+cor(load_nat[domains], load_lon[domains])
+
+```
+
+### Side-by-side bar chart (PC1 loadings)
+
+```{r loadings-bar, echo=FALSE, message=FALSE, warning=FALSE}
+
+loading_tbl_long <- loading_tbl %>%
+  select(Domain, National_PC1, London_PC1) %>%
+  pivot_longer(-Domain, names_to = "Scope", values_to = "Loading") %>%
+  mutate(Scope = recode(Scope,
+                        National_PC1 = "National",
+                        London_PC1 = "London"))
+
+ggplot(loading_tbl_long, aes(x = Domain, y = Loading, fill = Scope)) +
+  geom_col(position = "dodge") +
+  labs(title = "PC1 loadings: National vs London", y = "Loading", x = NULL) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+

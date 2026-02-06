@@ -1,0 +1,30 @@
+---
+title: "IMD 2025: Linear Models, AIC Selection, Diagnostics"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+---
+
+## 1. Setup
+
+```{r setup, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(broom)
+library(ggrepel)
+library(olsrr)
+
+# Read data (repo structure: data/ is one level above notebooks/)
+imd <- readr::read_csv(file.path("..", "data", "imd2025_individual.csv"),
+                       show_col_types = FALSE)
+
+domains <- c("Income","Employment","Education","Health","Crime","Barriers","Living")
+
+# Quick validation (fails early if columns are missing)
+required <- c("LAD24CD","LAD24NM","Overall","Rank","Region", domains)
+missing <- setdiff(required, names(imd))
+if (length(missing) > 0) stop("Missing columns: ", paste(missing, collapse = ", "))
+
+glimpse(imd)
+summary(imd %>% select(Overall, all_of(domains)))
